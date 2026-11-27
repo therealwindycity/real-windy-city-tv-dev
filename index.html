@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>[Developer copy] The Real Windy City · Cheyenne City Meetings, Speakers &amp; Records (2008–2026)</title>
+  <meta name="description" content="Watch Cheyenne city government meetings from 2008 to 2026, see who spoke and what they said, look up the people and companies that come before the city, follow every ordinance from first reading to final vote, and read the original meeting documents." />
+  <meta property="og:title" content="The Real Windy City · Cheyenne City Meetings, Speakers &amp; Records" />
+  <meta property="og:description" content="Every Cheyenne city meeting, video clips of each speaker, who's who in city business, every ordinance and the original meeting documents (2008–2026)." />
+  <meta property="og:type" content="website" />
+  <link rel="stylesheet" href="./styles.css" />
+  <meta name="robots" content="noindex, nofollow" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="#home" class="brand" data-nav="home">
+        <span class="brand-badge">RWC</span>
+        <span>
+          <span class="brand-title">The Real Windy City</span>
+          <span class="brand-sub">Cheyenne city meetings, speakers &amp; public records</span>
+        </span>
+      </a>
+      <nav class="main-nav" id="mainNav">
+        <button type="button" data-nav="home" class="active">Home</button>
+        <button type="button" data-nav="episodes">📺 Meetings <span class="nav-count" data-count="episodes"></span></button>
+        <button type="button" data-nav="speakers">🎙️ Speaker Clips <span class="nav-count" data-count="speakers"></span></button>
+        <button type="button" data-nav="osint">🕸️ Who's Who <span class="nav-count" data-count="osint"></span></button>
+        <button type="button" data-nav="ordinances">📜 Ordinances <span class="nav-count" data-count="ordinances"></span></button>
+        <button type="button" data-nav="foundry">📄 Documents <span class="nav-count" data-count="foundry"></span></button>
+        <button type="button" data-nav="provenance">🎥 Where the Records Come From</button>
+        <button type="button" data-nav="cast">🎭 People <span class="nav-count" data-count="cast"></span></button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="appRoot" class="app-root">
+    <div class="loading-shell">Loading Cheyenne city meetings…</div>
+  </main>
+
+  <div id="floatLayer"></div>
+  <div id="modalLayer"></div>
+
+  <footer class="site-footer" id="siteFooter">
+    Built from Cheyenne's public meeting records, 2008–2026: agendas, minutes, attached documents and meeting video. Nothing here is legal advice.
+  </footer>
+
+  <script src="./app.js"></script>
+  <script>window.RWC_FEEDBACK = { mode: "dev" };</script>
+  <script src="./feedback/feedback.js"></script>
+</body>
+</html>
