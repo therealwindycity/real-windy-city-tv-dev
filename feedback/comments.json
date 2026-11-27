@@ -41,7 +41,7 @@
   "status": "wontfix",
   "receivedAt": "2026-11-27T08:26:02Z",
   "issue": 1,
-  "_issueState": "open",
+  "_issueState": "closed",
   "fixNote": "Setup test — closed.",
   "fixedAt": "2026-11-27T08:45:00Z"
  }
