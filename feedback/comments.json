@@ -16,7 +16,10 @@
   "site": "dev",
   "createdAt": "2026-11-27T12:57:12.200Z",
   "num": 1,
-  "status": "open",
-  "receivedAt": "2026-11-27T12:57:28Z"
+  "status": "fixed",
+  "receivedAt": "2026-11-27T12:57:28Z",
+  "updatedAt": "2026-11-27T12:58:04Z",
+  "fixNote": "MCP server test: status change works",
+  "fixedAt": "2026-11-27T12:58:04Z"
  }
 ]
