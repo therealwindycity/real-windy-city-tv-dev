@@ -1,1 +1,22 @@
-[]
+[
+ {
+  "comment": "TEST from the MCP server - please ignore, will be removed automatically",
+  "page": "Heated Moments",
+  "element": "MCP test",
+  "elementText": "",
+  "selector": "",
+  "url": "https://therealwindycity.github.io/real-windy-city-tv-dev/",
+  "author": "MCP test",
+  "type": "other",
+  "hash": "",
+  "navLabel": "",
+  "tag": "",
+  "screen": "",
+  "id": "mwyzkdmw-cmaenf",
+  "site": "dev",
+  "createdAt": "2026-11-27T12:57:12.200Z",
+  "num": 1,
+  "status": "open",
+  "receivedAt": "2026-11-27T12:57:28Z"
+ }
+]
