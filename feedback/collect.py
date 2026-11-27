@@ -139,6 +139,7 @@ def main():
     state = json.loads(STATE.read_text()) if STATE.exists() else {}
     by_id = {c["id"]: c for c in comments}
     seen_actions = set(state.get("actions", []))
+    deleted = set(state.get("deleted", []))  # ids removed on purpose (tests, spam): never re-file them
     next_num = max([c.get("num", 0) for c in comments] + [0]) + 1
     new_count = 0
     for site, topic in TOPICS.items():
@@ -167,7 +168,7 @@ def main():
                                                       "note": c.get("note", ""), "author": c.get("author", ""), "createdAt": c.get("createdAt", now())})
                 tgt["updatedAt"] = now()
                 continue
-            if c["id"] in by_id or not c.get("comment"):
+            if c["id"] in by_id or c["id"] in deleted or not c.get("comment"):
                 continue
             c.pop("kind", None)
             c.update({"num": next_num, "status": "open", "receivedAt": now()})
@@ -194,6 +195,7 @@ def main():
     comments.sort(key=lambda c: c.get("num", 0))
     COMMENTS.write_text(json.dumps(comments, ensure_ascii=False, indent=1) + "\n")
     state["actions"] = sorted(seen_actions)[-2000:]
+    state["deleted"] = sorted(deleted)
     STATE.write_text(json.dumps(state) + "\n")
     write_md(comments)
     print(f"new comments: {new_count}; total {len(comments)}")
