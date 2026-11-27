@@ -677,6 +677,13 @@
       <div class="grid-3">${topTurns.map(renderTurnCard).join("")}</div>
 
       <div class="section-head">
+        <h2>🔥 Heated Moments</h2>
+        <span class="sub">The most contentious clips: speakers cut off, points of order, heated exchanges</span>
+        <button type="button" class="more" onclick="navTo('heated')">See all ${fmtN(heatedTurns().length)} heated moments →</button>
+      </div>
+      <div class="grid-3">${heatedSampler(6).map(heatCardHtml).join("")}</div>
+
+      <div class="section-head">
         <h2>🕸️ Who's Who in City Business</h2>
         <span class="sub">Business groups, contractors, public agencies and the people who speak at meetings</span>
         <button type="button" class="more" onclick="navTo('osint')">See all ${fmtN(C.osint)} profiles →</button>
@@ -1783,6 +1790,145 @@
     });
   }
 
+
+  // ---------- 🔥 Heated Moments: the most contentious speaker clips ----------
+  // Ranked automatically from the meeting records and transcript: the chair cutting a speaker off,
+  // points of order, heated exchanges, speaking against an item, strong words, and back-and-forth.
+  const HEAT_WORDS = /\b(point of order|out of order|your time is up|time'?s up|decorum|gavel|recess|shame|lie|lied|liar|lying|corrupt\w*|illegal|unlawful|lawsuits?|fraud\w*|cover[- ]up|disgrace\w*|outrage\w*|insult\w*|disrespect\w*|threat\w*|resign|recall|conflict of interest|violat\w+|backroom|behind closed doors|rigged|ashamed|let me finish|interrupt\w*|null and void|cut my microphone)\b/gi;
+  function heatInfo(t) {
+    let score = 0;
+    const why = [];
+    if (t.pointOfOrderType === "Chair ended the speaker's time") { score += 5; why.push(["✂️", "The chair cut the speaker off"]); }
+    else if (t.hasPointOfOrder || t.pointOfOrderType) { score += 3.5; why.push(["⚖️", "A point of order was raised"]); }
+    if (t.emotion === "angry") { score += 4; why.push(["😠", "Heated exchange"]); }
+    else if (t.emotion === "impactful") score += 1.5;
+    else if (t.emotion === "concerned") score += 1;
+    if (t.stance === "oppose_challenge") { score += 2; why.push(["👎", "Speaking against the item"]); }
+    const words = Array.from(new Set(((t.text || "").match(HEAT_WORDS) || []).map((w) => w.toLowerCase())));
+    score += Math.min(words.length, 4);
+    if ((t.text || "").split(" — ").length >= 5) { score += 1; why.push(["🔁", "Back-and-forth with the council"]); }
+    if (words.length) why.push(["🗯️", "Strong words: " + words.slice(0, 4).map((w) => `“${w}”`).join(", ")]);
+    score += (t.impactScore || 0) / 50;
+    return { score: Math.round(score * 10) / 10, why };
+  }
+  let HEAT_CACHE = null;
+  function heatedTurns() {
+    if (HEAT_CACHE) return HEAT_CACHE;
+    const playable = (t) => Boolean(t.brandedMp4Url || t.directMp4Url || t.sourceMeetingMp4Url || t.youtubeId);
+    let list = DB.turns
+      .filter((t) => playable(t) && t.videoTiming !== "removed" && t.videoTiming !== "diarized_window" && t.speakerAttributionVerified !== false && (t.durationSec || 0) >= 15)
+      .map((t) => Object.assign({ heat: heatInfo(t) }, { t }))
+      .filter((x) => x.heat.score >= 9 && x.heat.why.some((w) => w[0] !== "🗯️"));
+    list.sort((a, b) => b.heat.score - a.heat.score || (b.t.brandedMp4Url ? 1 : 0) - (a.t.brandedMp4Url ? 1 : 0));
+    // The same moment is sometimes recorded twice (overlapping windows), often once under the person
+    // chairing the meeting. Keep one clip per moment: a checked clip first, then a ready-made clip,
+    // then the speaker rather than the chair. It keeps the highest heat score of the group.
+    const overlaps = (a, c) => a.t.meetingSlug === c.t.meetingSlug && Math.min(a.t.endSec, c.t.endSec) - Math.max(a.t.startSec, c.t.startSec) > 0.5 * Math.min(a.t.endSec - a.t.startSec, c.t.endSec - c.t.startSec);
+    const isChair = (t) => /^(mayor|council president|chair)/i.test(t.speakerRole || "") || /^mayor /i.test(t.speakerName || "");
+    const pref = (x) => (x.t.verifiedClip ? 4 : 0) + (x.t.brandedMp4Url ? 2 : 0) + (isChair(x.t) ? 0 : 1);
+    const kept = [];
+    for (const x of list) {
+      const k = kept.find((g) => g.group.some((y) => overlaps(y, x)));
+      if (!k) { kept.push({ best: x, group: [x], top: x.heat }); continue; }
+      k.group.push(x);
+      if (pref(x) > pref(k.best)) k.best = x;
+    }
+    for (let i = 0; i < kept.length; i++) {
+      const g = kept[i];
+      const why = g.top.why.slice();
+      g.best.heat.why.forEach((w) => { if (!why.some((v) => v[1] === w[1])) why.push(w); });
+      kept[i] = { t: g.best.t, heat: { score: Math.max(g.top.score, g.best.heat.score), why } };
+    }
+    kept.sort((a, c) => c.heat.score - a.heat.score);
+    kept.forEach((x, i) => { x.rank = i + 1; });
+    HEAT_CACHE = kept;
+    return kept;
+  }
+  // a varied pick for the home page: no more than 2 clips per speaker
+  function heatedSampler(n) {
+    const per = {};
+    const out = [];
+    for (const x of heatedTurns()) {
+      per[x.t.speakerSlug] = (per[x.t.speakerSlug] || 0) + 1;
+      if (per[x.t.speakerSlug] > 2) continue;
+      out.push(x);
+      if (out.length >= n) break;
+    }
+    return out;
+  }
+  function heatCardHtml(x) {
+    return `<div style="display:flex;flex-direction:column;gap:6px">
+      <div style="background:linear-gradient(90deg,#7f1d1d,#3f0d12);border:1px solid #be123c;border-radius:10px;padding:8px 10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <b style="color:#fecdd3;font-size:13px">🔥 #${x.rank} most heated</b>
+          <span style="font-family:var(--mono);font-size:10.5px;color:#fda4af" title="Higher = more contentious">heat score ${x.heat.score}</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${x.heat.why.map((w) => `<span class="tag" style="background:#4c0519;color:#ffe4e6;border:1px solid #9f1239">${w[0]} ${esc(w[1])}</span>`).join("")}</div>
+      </div>
+      ${renderTurnCard(x.t)}
+    </div>`;
+  }
+  function renderHeatedView() {
+    const all = heatedTurns();
+    const f = STATE.heat || (STATE.heat = { reason: "all", year: "all", q: "", page: 1 });
+    const years = Array.from(new Set(all.map((x) => x.t.season))).sort((a, b) => b - a);
+    const speakers = {};
+    all.forEach((x) => { speakers[x.t.speakerName] = (speakers[x.t.speakerName] || 0) + 1; });
+    const REASONS = { all: "Every reason", cut: "✂️ Chair cut the speaker off", order: "⚖️ Point of order", heated: "😠 Heated exchange", against: "👎 Speaking against the item" };
+    const match = (x) => {
+      const t = x.t;
+      if (f.year !== "all" && String(t.season) !== String(f.year)) return false;
+      if (f.reason === "cut" && t.pointOfOrderType !== "Chair ended the speaker's time") return false;
+      if (f.reason === "order" && !(t.hasPointOfOrder || t.pointOfOrderType)) return false;
+      if (f.reason === "heated" && t.emotion !== "angry") return false;
+      if (f.reason === "against" && t.stance !== "oppose_challenge") return false;
+      if (f.q) { const q = f.q.toLowerCase(); if (!(`${t.speakerName} ${t.bodyName} ${t.date} ${t.text}`.toLowerCase().includes(q))) return false; }
+      return true;
+    };
+    const shown = all.filter(match);
+    const PER = 24;
+    const pages = Math.max(1, Math.ceil(shown.length / PER));
+    if (f.page > pages) f.page = pages;
+    const slice = shown.slice((f.page - 1) * PER, f.page * PER);
+    const topSpeakers = Object.entries(speakers).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    document.getElementById("appRoot").innerHTML = `
+      <section class="panel" style="border-color:#be123c;background:linear-gradient(135deg,#1c0a10,#0b1220)">
+        <div class="kicker" style="color:#fb7185">🔥 THE MOST CONTENTIOUS MOMENTS AT CHEYENNE CITY MEETINGS</div>
+        <h1 class="hero-h1" style="font-size:34px;margin:6px 0">Heated Moments</h1>
+        <p style="font-size:13.5px;color:#e2e8f0;max-width:860px;line-height:1.55">
+          ${fmtN(all.length)} video clips ranked from most to least heated: speakers cut off by the chair, points of order,
+          heated exchanges, people speaking against an item, strong words like “out of order” or “illegal,” and back-and-forth with the council.
+          The ranking is worked out automatically from the meeting records and transcripts, so treat it as a starting point and watch the clip.
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px">
+          <input id="heatQ" class="input" style="min-width:260px" placeholder="Search a name, a meeting or words said…" value="${esc(f.q)}"
+            onkeydown="if(event.key==='Enter'){STATE.heat.q=this.value;STATE.heat.page=1;renderHeatedView();}">
+          <button type="button" class="btn btn-amber" onclick="STATE.heat.q=document.getElementById('heatQ').value;STATE.heat.page=1;renderHeatedView()">Search</button>
+          <select class="input" onchange="STATE.heat.reason=this.value;STATE.heat.page=1;renderHeatedView()">
+            ${Object.entries(REASONS).map(([k, v]) => `<option value="${k}" ${f.reason === k ? "selected" : ""}>${v}</option>`).join("")}
+          </select>
+          <select class="input" onchange="STATE.heat.year=this.value;STATE.heat.page=1;renderHeatedView()">
+            <option value="all">Every year</option>
+            ${years.map((y) => `<option value="${y}" ${String(f.year) === String(y) ? "selected" : ""}>${y}</option>`).join("")}
+          </select>
+          ${f.q || f.reason !== "all" || f.year !== "all" ? `<button type="button" class="btn" onclick="STATE.heat={reason:'all',year:'all',q:'',page:1};renderHeatedView()">Clear filters</button>` : ""}
+          <span style="font-family:var(--mono);font-size:11.5px;color:#fda4af">${fmtN(shown.length)} clips</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;font-size:11.5px;color:#cbd5e1">
+          <span>Most heated clips by person:</span>
+          ${topSpeakers.map(([n, c]) => `<button type="button" class="chip" style="padding:3px 9px;font-size:11px" onclick="STATE.heat.q='${jsq(n)}';STATE.heat.page=1;renderHeatedView()">${esc(n)} (${c})</button>`).join("")}
+        </div>
+      </section>
+      ${slice.length ? `<div class="grid-3" style="margin-top:14px">${slice.map(heatCardHtml).join("")}</div>` : `<div class="panel" style="margin-top:14px">No clips match. <button type="button" class="btn" onclick="STATE.heat={reason:'all',year:'all',q:'',page:1};renderHeatedView()">Clear filters</button></div>`}
+      ${pages > 1 ? `<div class="panel" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
+        <button type="button" class="btn" ${f.page <= 1 ? "disabled" : ""} onclick="STATE.heat.page--;renderHeatedView();window.scrollTo(0,0)">← Previous Page</button>
+        <span style="font-family:var(--mono)">Page <b>${f.page}</b> of <b>${pages}</b></span>
+        <button type="button" class="btn btn-amber" ${f.page >= pages ? "disabled" : ""} onclick="STATE.heat.page++;renderHeatedView();window.scrollTo(0,0)">Next Page →</button>
+      </div>` : ""}`;
+  }
+  window.renderHeatedView = renderHeatedView;
+  window.heatedTurns = heatedTurns;
+
   window.navTo = function (view) {
     STATE.view = view;
     window.location.hash = view;
@@ -1794,6 +1940,7 @@
     else if (view === "ordinances") renderOrdinancesList();
     else if (view === "foundry") renderGlobalFoundry();
     else if (view === "cast") renderCastView();
+    else if (view === "heated") renderHeatedView();
     else if (view === "provenance") document.getElementById("appRoot").innerHTML = renderProvenanceInner();
   };
 
@@ -1850,7 +1997,7 @@
     C.ordinances = ords.length;
     C.films = ((prov && prov.masterFilms) || []).length + ((prov && prov.chapters) || []).length;
     C.people = (people || []).length;
-    const navCounts = { episodes: C.episodes, speakers: C.turns, osint: C.osint, ordinances: C.ordinances, foundry: C.docs, cast: C.speakers };
+    const navCounts = { episodes: C.episodes, speakers: C.turns, heated: heatedTurns().length, osint: C.osint, ordinances: C.ordinances, foundry: C.docs, cast: C.speakers };
     document.querySelectorAll("[data-count]").forEach((el) => {
       const n = navCounts[el.getAttribute("data-count")];
       if (n) el.textContent = `(${fmtN(n)})`;
@@ -1867,7 +2014,7 @@
     if (h.startsWith("ep:")) return openEpisode(decodeURIComponent(h.slice(3)));
     if (h.startsWith("speakers:")) return openSpeaker(decodeURIComponent(h.slice(9)));
     if (h.startsWith("ord:")) return openOrdinance(decodeURIComponent(h.slice(4)));
-    if (["episodes", "speakers", "osint", "ordinances", "foundry", "provenance", "cast"].includes(h)) return navTo(h);
+    if (["episodes", "speakers", "heated", "osint", "ordinances", "foundry", "provenance", "cast"].includes(h)) return navTo(h);
     renderHome();
   }
 
