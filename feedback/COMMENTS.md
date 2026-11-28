@@ -2,7 +2,7 @@
 
 Developer copy: https://therealwindycity.github.io/real-windy-city-tv-dev/  ·  Beta copy: https://therealwindycity.github.io/real-windy-city-tv-dev/beta/
 
-**0 not fixed yet · 0 fixed, waiting for the owner's OK · 0 closed** (total 0; updated 2026-11-28T09:21:10Z)
+**0 not fixed yet · 0 fixed, waiting for the owner's OK · 0 closed** (total 0; updated 2026-11-28T17:39:41Z)
 
 Machine-readable list: `feedback/comments.json`. To close one, set its `status` to `fixed` and add a `fixNote`.
 
